@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Nexchat{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Nexchat</h2>
+    <h3 style="text-align:center; margin-bottom:20px;">Create Account</h3>
+    <form id="registerForm">
+        <input type="text" id="username" placeholder="Username" required/>
+        <input type="email" id="email" placeholder="Email" required/>
+        <input type="text" id="phone" placeholder="Phone Number"/>
+        <input type="password" id="password" placeholder="Password" required/>
+        <input type="password" id="password2" placeholder="Confirm Password" required/>
+        <button type="submit">Register</button>
+        <div id="error" class="error"></div>
+    </form>
+    <div class="link">
+        Already have an account? <a href="/api/users/login-page/">Login</a>
+    </div>
+</div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const data = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        phone_number: document.getElementById('phone').value,
+        password: document.getElementById('password').value,
+        password2: document.getElementById('password2').value,
+    };
+    const response = await fetch('/api/users/register/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    const result = await response.json();
+    if (response.ok) {
+        window.location.href = '/api/users/login-page/';
+    } else {
+        document.getElementById('error').innerText = JSON.stringify(result);
+    }
+});
+</script>
+{% endblock %}
