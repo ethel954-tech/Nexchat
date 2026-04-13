@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block title %}Status Privacy - Nexchat{% endblock %}
+
+{% block extra_styles %}
+.privacy-shell {
+    display: flex;
+    height: 100%;
+    background: #0b141a;
+}
+
+.privacy-card {
+    flex: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    background: #111b21;
+    border: 1px solid #1f2c34;
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.option-item:last-child {
+    border-bottom: none;
+}
+
+.option-item label {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.option-item span {
+    font-size: 13px;
+    color: #8696a0;
+}
+
+.excluded-list {
+    border: 1px solid #1f2c34;
+    border-radius: 16px;
+    padding: 16px;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+}
+
+.excluded-list.show {
+    display: block;
+}
+
+.excluded-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.excluded-item input {
+    width: 18px;
+    height: 18px;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.actions button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.actions .secondary {
+    background: transparent;
+    border: 1px solid #2a3942;
+    color: #e9edef;
+}
+
+.actions .primary {
+    background: #00a884;
+    color: #111;
+}
+
+.empty-state {
+    text-align: center;
+    color: #8696a0;
+    padding: 20px 0;
+}
+{% endblock %}
+
+{% block content %}
+<div class="privacy-shell">
+    <div class="privacy-card">
+        <div>
+            <h1>Status Privacy</h1>
+            <p>Choose who can see your future status updates.</p>
+        </div>
+
+        <div class="option-item">
+            <input type="radio" name="visibility" value="all" id="visibilityAll">
+            <label for="visibilityAll">
+                <strong>Everyone</strong>
+                <span>Your statuses are visible to all users.</span>
+            </label>
+        </div>
+        <div class="option-item">
+            <input type="radio" name="visibility" value="contacts" id="visibilityContacts">
+            <label for="visibilityContacts">
+                <strong>My Contacts</strong>
+                <span>Only mutual contacts can view your statuses.</span>
+            </label>
+        </div>
+        <div class="option-item">
+            <input type="radio" name="visibility" value="custom" id="visibilityCustom">
+            <label for="visibilityCustom">
+                <strong>Everyone except...</strong>
+                <span>Hide statuses from selected contacts.</span>
+            </label>
+        </div>
+
+        <div class="excluded-list" id="excludedList">
+            <div id="excludedContainer">
+                <div class="empty-state">Loading contacts...</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button type="button" class="secondary" onclick="navigate('/status/')">Back</button>
+            <button type="button" class="primary" id="savePrivacyBtn">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const state = {
+        token: null,
+        visibility: 'all',
+        excluded: new Set(),
+        contacts: [],
+    };
+
+    const elements = {};
+
+    function headers() {
+        return {
+            'Authorization': `Token ${state.token}`,
+            'Content-Type': 'application/json',
+        };
+    }
+
+    function syncRadio() {
+        const radios = document.querySelectorAll('input[name="visibility"]');
+        radios.forEach(radio => {
+            radio.checked = radio.value === state.visibility;
+            radio.addEventListener('change', () => {
+                state.visibility = radio.value;
+                toggleExcluded();
+            });
+        });
+        toggleExcluded();
+    }
+
+    function toggleExcluded() {
+        if (state.visibility === 'custom') {
+            elements.excludedList.classList.add('show');
+        } else {
+            elements.excludedList.classList.remove('show');
+        }
+    }
+
+    function renderContacts() {
+        if (!state.contacts.length) {
+            elements.excludedContainer.innerHTML = '<div class="empty-state">No contacts to hide.</div>';
+            return;
+        }
+        elements.excludedContainer.innerHTML = state.contacts.map(contact => {
+            const checked = state.excluded.has(contact.id) ? 'checked' : '';
+            return `
+                <label class="excluded-item">
+                    <input type="checkbox" data-id="${contact.id}" ${checked}>
+                    <div>
+                        <strong>${contact.username}</strong>
+                        <div style="color:#8696a0;font-size:13px;">${contact.status || 'Available'}</div>
+                    </div>
+                </label>
+            `;
+        }).join('');
+
+        elements.excludedContainer.querySelectorAll('input[type="checkbox"]').forEach(box => {
+            box.addEventListener('change', () => {
+                const id = Number(box.dataset.id);
+                if (box.checked) {
+                    state.excluded.add(id);
+                } else {
+                    state.excluded.delete(id);
+                }
+            });
+        });
+    }
+
+    async function loadContacts() {
+        try {
+            const res = await fetch('/api/user/contacts/', { headers: headers() });
+            if (!res.ok) throw new Error('Unable to load contacts');
+            const data = await res.json();
+            state.contacts = data.contacts || [];
+            renderContacts();
+        } catch (error) {
+            console.error(error);
+            elements.excludedContainer.innerHTML = '<div class="empty-state">Failed to load contacts.</div>';
+        }
+    }
+
+    async function loadPrivacy() {
+        try {
+            const res = await fetch('/api/user/status/privacy/', { headers: headers() });
+            if (!res.ok) throw new Error('Unable to load privacy settings');
+            const data = await res.json();
+            state.visibility = data.visibility;
+            state.excluded = new Set(data.excluded_user_ids || []);
+            syncRadio();
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    async function savePrivacy() {
+        try {
+            const res = await fetch('/api/user/status/privacy/', {
+                method: 'PUT',
+                headers: headers(),
+                body: JSON.stringify({
+                    visibility: state.visibility,
+                    excluded_user_ids: Array.from(state.excluded),
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Unable to save privacy');
+            }
+            alert('Status privacy updated.');
+            navigate('/status/');
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.excludedList = document.getElementById('excludedList');
+        elements.excludedContainer = document.getElementById('excludedContainer');
+        document.getElementById('savePrivacyBtn').addEventListener('click', savePrivacy);
+        await Promise.all([loadPrivacy(), loadContacts()]);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

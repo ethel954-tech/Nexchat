@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - Nexchat{% endblock %}
+
+{% block extra_styles %}
+{% include 'chats/partials/utility_styles.css' %}
+.profile-summary {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+}
+.profile-summary .avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+    <span class="back-btn" onclick="goBack()">←</span>
+    <h3>Profile</h3>
+</div>
+<div class="utility-shell">
+    <section class="utility-main">
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h1>Profile</h1>
+                    <p>Update how you appear across chats.</p>
+                </div>
+                <div class="utility-actions">
+                    <button type="button" id="uploadPhoto">Upload Photo</button>
+                </div>
+            </div>
+            <div class="profile-summary">
+                <div class="avatar" id="profileAvatar">NC</div>
+                <div>
+                    <h2 id="profileHeading">Nexchat User</h2>
+                    <p class="pill"><span class="status-dot"></span><span id="profileStatusText">Available</span></p>
+                </div>
+            </div>
+            <form class="utility-form" id="profileForm">
+                <label for="profileUsername">Display Name</label>
+                <input type="text" id="profileUsername" placeholder="Nexchat User" required>
+
+                <label for="profileEmail">Email</label>
+                <input type="email" id="profileEmail" placeholder="hello@nexchat.app">
+
+                <label for="profilePhone">Phone Number</label>
+                <input type="tel" id="profilePhone" placeholder="+1 555 555 5555">
+
+                <label for="profileStatus">Status Message</label>
+                <textarea rows="2" id="profileStatus" placeholder="Add a short bio"></textarea>
+
+                <button type="submit">Save Changes</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const endpoint = '/api/user/auth/profile/';
+    const state = {
+        token: null,
+        profile: null,
+    };
+
+    const elements = {};
+
+    function getHeaders(includeJson = true) {
+        const headers = {
+            'Authorization': `Token ${state.token}`,
+        };
+        if (includeJson) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    }
+
+    async function loadProfile() {
+        try {
+            const res = await fetch(endpoint, { headers: getHeaders(false) });
+            if (!res.ok) throw new Error('Unable to load profile');
+            state.profile = await res.json();
+            renderProfile();
+        } catch (error) {
+            console.error(error);
+            alert('Failed to load profile.');
+        }
+    }
+
+    function renderProfile() {
+        if (!state.profile) return;
+        const initials = (state.profile.username || 'NC').slice(0, 2).toUpperCase();
+        elements.avatar.textContent = initials;
+        elements.heading.textContent = state.profile.username || 'Nexchat User';
+        elements.statusText.textContent = state.profile.status || 'Available';
+        elements.username.value = state.profile.username || '';
+        elements.email.value = state.profile.email || '';
+        elements.phone.value = state.profile.phone_number || '';
+        elements.status.value = state.profile.status || '';
+    }
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        const payload = {
+            username: elements.username.value.trim(),
+            email: elements.email.value.trim(),
+            phone_number: elements.phone.value.trim(),
+            status: elements.status.value.trim(),
+        };
+        try {
+            const res = await fetch(endpoint, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Unable to save profile');
+            }
+            state.profile = await res.json();
+            renderProfile();
+            alert('Profile updated!');
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.form = document.getElementById('profileForm');
+        elements.username = document.getElementById('profileUsername');
+        elements.email = document.getElementById('profileEmail');
+        elements.phone = document.getElementById('profilePhone');
+        elements.status = document.getElementById('profileStatus');
+        elements.avatar = document.getElementById('profileAvatar');
+        elements.heading = document.getElementById('profileHeading');
+        elements.statusText = document.getElementById('profileStatusText');
+        elements.upload = document.getElementById('uploadPhoto');
+        elements.form.addEventListener('submit', handleSubmit);
+        elements.upload.addEventListener('click', () => alert('Image uploads coming soon.'));
+        loadProfile();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

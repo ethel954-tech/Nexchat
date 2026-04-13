@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Nexchat{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block extra_styles %}
+.auth-card h2 { color: #128c7e; text-align: center; margin-bottom: 16px; }
+.auth-card form { display: flex; flex-direction: column; gap: 12px; }
+.auth-card input {
+    padding: 12px;
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+}
+.auth-card button {
+    padding: 12px;
+    background: #128c7e;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.auth-card button:hover { background: #0f6d60; }
+.auth-card .link { margin-top: 8px; text-align: center; }
+.auth-card .error { color: #e74c3c; min-height: 20px; text-align: center; }
+{% endblock %}
+
+{% block content %}
+<div class="card auth-card">
+    <h2>Create account</h2>
+    <form id="registerForm">
+        <input type="text" id="username" placeholder="Username" required/>
+        <input type="email" id="email" placeholder="Email" required/>
+        <input type="text" id="phone" placeholder="Phone Number"/>
+        <input type="password" id="password" placeholder="Password" required/>
+        <input type="password" id="password2" placeholder="Confirm Password" required/>
+        <button type="submit">Register</button>
+        <div id="error" class="error"></div>
+    </form>
+    <div class="link">
+        Already have an account? <a href="/user/login-page/">Login</a>
+    </div>
+</div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById('error');
+    errorDiv.innerText = '';
+    
+    const data = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        phone_number: document.getElementById('phone').value,
+        password: document.getElementById('password').value,
+        password2: document.getElementById('password2').value,
+    };
+    
+    try {
+        const response = await fetch('/api/user/auth/register/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (response.ok) {
+            window.location.href = '/user/login-page/';
+        } else {
+            errorDiv.innerText = JSON.stringify(result);
+        }
+    } catch (error) {
+        console.error('Fetch error:', error);
+        errorDiv.innerText = `Error: ${error.message}`;
+    }
+});
+</script>
+{% endblock %}

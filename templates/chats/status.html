@@ -1,0 +1,733 @@
+{% extends 'base.html' %}
+
+{% block title %}Status - Nexchat{% endblock %}
+
+{% block extra_styles %}
+.status-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px;
+    height: 100%;
+    overflow-y: auto;
+    background: var(--background);
+}
+
+.status-panel {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 20px;
+}
+
+.status-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.status-panel-header h2 {
+    margin-bottom: 4px;
+    font-size: 18px;
+}
+
+.status-panel-header p {
+    color: rgba(241, 245, 249, 0.65);
+    font-size: 14px;
+}
+
+.status-panel-header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.status-panel-header button {
+    background: var(--primary);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+}
+
+.status-panel-header button.secondary {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-panel-header button:hover {
+    background: var(--primary-dark);
+}
+
+.status-composer {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px;
+}
+
+.status-composer.show {
+    display: flex;
+}
+
+.status-composer textarea {
+    width: 100%;
+    min-height: 80px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    background: transparent;
+    color: var(--text);
+    resize: none;
+}
+
+.composer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.file-label {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 8px 16px;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.file-label input {
+    display: none;
+}
+
+.composer-actions button {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 999px;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+}
+
+.status-bar {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    padding: 4px 4px 12px;
+    scroll-behavior: smooth;
+}
+
+.status-bar::-webkit-scrollbar {
+    height: 6px;
+}
+
+.status-bar::-webkit-scrollbar-thumb {
+    background: var(--card);
+    border-radius: 999px;
+}
+
+.status-item {
+    flex: 0 0 auto;
+    width: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    color: var(--text);
+    cursor: pointer;
+    position: relative;
+}
+
+.status-item:focus-visible {
+    outline: 2px solid #0b5cff;
+    outline-offset: 4px;
+    border-radius: 16px;
+}
+
+.status-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 20px;
+    transition: transform 0.2s;
+    position: relative;
+}
+
+.status-item img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.status-initials {
+    letter-spacing: 0.5px;
+}
+
+.status-item:hover .status-avatar {
+    transform: scale(1.03);
+}
+
+.status-username {
+    font-size: 13px;
+    color: var(--text);
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-placeholder {
+    color: rgba(241, 245, 249, 0.6);
+    padding: 18px 0;
+    font-size: 14px;
+}
+
+.status-plus {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--background);
+    color: var(--accent);
+    font-size: 16px;
+    line-height: 20px;
+}
+
+.status-count {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    background: var(--background);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: rgba(241, 245, 249, 0.65);
+}
+
+.status-viewer {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+}
+
+.status-viewer.show {
+    display: flex;
+}
+
+.viewer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.viewer-modal {
+    position: relative;
+    background: #111b21;
+    border-radius: 24px;
+    padding: 24px;
+    width: min(480px, 90%);
+    z-index: 1101;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid #1f2c34;
+}
+
+.viewer-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: #8696a0;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.viewer-content {
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.viewer-modal img,
+.viewer-modal video,
+.viewer-modal audio {
+    width: 100%;
+    border-radius: 16px;
+    background: #000;
+}
+
+.viewer-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.viewer-controls button {
+    background: #1f2c34;
+    border: 1px solid #2b3942;
+    color: #e9edef;
+    padding: 8px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.viewer-controls button:hover {
+    background: #2a3942;
+}
+
+.viewer-text {
+    font-size: 16px;
+    line-height: 1.5;
+    width: 100%;
+}
+{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+    <span class="back-btn" onclick="goBack()">←</span>
+    <h3>Status</h3>
+</div>
+<div class="status-page">
+    <section class="status-panel">
+        <header class="status-panel-header">
+            <div>
+                <h2>Status</h2>
+                <p>Share and see updates from your contacts.</p>
+            </div>
+            <div class="status-panel-header-actions">
+                <button type="button" class="secondary" id="statusPrivacyBtn">Privacy</button>
+                <button type="button" id="addStatusBtn">Add Status</button>
+            </div>
+        </header>
+        <div id="statusComposer" class="status-composer">
+            <textarea id="statusText" placeholder="Type a quick update..."></textarea>
+            <div class="composer-actions">
+                <label class="file-label">
+                    <span id="statusFileLabel">Attach media</span>
+                    <input type="file" id="statusFile" accept="image/*,video/*,audio/*">
+                </label>
+                <button type="button" id="submitStatusBtn">Post</button>
+            </div>
+        </div>
+        <div class="status-bar" id="statusBar">
+            <div class="status-placeholder">Loading statuses...</div>
+        </div>
+    </section>
+</div>
+
+<div class="status-viewer" id="statusViewer">
+    <div class="viewer-backdrop" id="statusViewerBackdrop"></div>
+    <div class="viewer-modal" id="statusViewerModal">
+        <button type="button" class="viewer-close" id="statusViewerClose">&times;</button>
+        <div class="viewer-header">
+            <div>
+                <h3 id="viewerUsername">Status</h3>
+                <small id="viewerTimestamp"></small>
+            </div>
+            <small id="viewerCounter"></small>
+        </div>
+        <div id="viewerContent" class="viewer-content"></div>
+        <div class="viewer-controls">
+            <button type="button" id="statusViewerPrev">Prev</button>
+            <button type="button" id="statusViewerNext">Next</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const storageKey = 'status_seen_ids';
+
+    const state = {
+        token: localStorage.getItem('token'),
+        user: null,
+        statuses: [],
+        groups: [],
+        seenStatusIds: new Set(),
+        viewerSession: null,
+    };
+
+    if (!state.token) {
+        window.location.href = '/user/login-page/';
+        return;
+    }
+
+    const elements = {};
+
+    function querySelectors() {
+        elements.addButton = document.getElementById('addStatusBtn');
+        elements.privacyButton = document.getElementById('statusPrivacyBtn');
+        elements.composer = document.getElementById('statusComposer');
+        elements.textInput = document.getElementById('statusText');
+        elements.fileInput = document.getElementById('statusFile');
+        elements.fileLabel = document.getElementById('statusFileLabel');
+        elements.submitButton = document.getElementById('submitStatusBtn');
+        elements.statusBar = document.getElementById('statusBar');
+        elements.viewer = document.getElementById('statusViewer');
+        elements.viewerModal = document.getElementById('statusViewerModal');
+        elements.viewerBackdrop = document.getElementById('statusViewerBackdrop');
+        elements.viewerClose = document.getElementById('statusViewerClose');
+        elements.viewerUsername = document.getElementById('viewerUsername');
+        elements.viewerTimestamp = document.getElementById('viewerTimestamp');
+        elements.viewerCounter = document.getElementById('viewerCounter');
+        elements.viewerContent = document.getElementById('viewerContent');
+        elements.viewerPrev = document.getElementById('statusViewerPrev');
+        elements.viewerNext = document.getElementById('statusViewerNext');
+    }
+
+    function bindEvents() {
+        elements.addButton.addEventListener('click', () => {
+            elements.composer.classList.toggle('show');
+            if (elements.composer.classList.contains('show')) {
+                elements.textInput.focus();
+            }
+        });
+        elements.submitButton.addEventListener('click', createStatus);
+        elements.privacyButton.addEventListener('click', () => navigate('/status/privacy/'));
+        elements.fileInput.addEventListener('change', updateFileLabel);
+        elements.viewerClose.addEventListener('click', closeViewer);
+        elements.viewerBackdrop.addEventListener('click', closeViewer);
+        elements.viewerPrev.addEventListener('click', goToPrevStatus);
+        elements.viewerNext.addEventListener('click', goToNextStatus);
+        elements.viewerContent.addEventListener('click', (event) => {
+            const tag = event.target.tagName;
+            if (tag === 'VIDEO' || tag === 'AUDIO') {
+                return;
+            }
+            goToNextStatus();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeViewer();
+            } else if (event.key === 'ArrowRight') {
+                goToNextStatus();
+            } else if (event.key === 'ArrowLeft') {
+                goToPrevStatus();
+            }
+        });
+    }
+
+    function loadStorageState() {
+        try {
+            const raw = localStorage.getItem(storageKey);
+            state.seenStatusIds = new Set(raw ? JSON.parse(raw) : []);
+        } catch (error) {
+            state.seenStatusIds = new Set();
+        }
+    }
+
+    function persistSeen() {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(state.seenStatusIds)));
+    }
+
+    function authHeaders(contentType = 'application/json') {
+        const headers = {
+            'Authorization': `Token ${state.token}`,
+        };
+        if (contentType) {
+            headers['Content-Type'] = contentType;
+        }
+        return headers;
+    }
+
+    async function init() {
+        querySelectors();
+        loadStorageState();
+        bindEvents();
+        await loadProfile();
+        await loadStatuses();
+    }
+
+    async function loadProfile() {
+        const res = await fetch('/api/user/auth/profile/', { headers: authHeaders() });
+        if (res.ok) {
+            state.user = await res.json();
+        }
+    }
+
+    async function loadStatuses() {
+        try {
+            const res = await fetch('/api/status/', { headers: authHeaders() });
+            if (!res.ok) throw new Error('Unable to load statuses');
+            const data = await res.json();
+            state.statuses = data.statuses || [];
+            buildGroups();
+            renderStatusBar();
+        } catch (error) {
+            console.error(error);
+            elements.statusBar.innerHTML = '<div class="status-placeholder">Failed to load statuses.</div>';
+        }
+    }
+
+    function buildGroups() {
+        const grouped = new Map();
+        state.statuses.forEach((status) => {
+            if (!grouped.has(status.user_id)) {
+                grouped.set(status.user_id, {
+                    user_id: status.user_id,
+                    username: status.username,
+                    profile_picture: status.profile_picture || null,
+                    statuses: [],
+                });
+            }
+            const entry = grouped.get(status.user_id);
+            entry.username = status.username || entry.username;
+            entry.profile_picture = entry.profile_picture || status.profile_picture || null;
+            entry.statuses.push(status);
+        });
+
+        grouped.forEach((entry) => {
+            entry.statuses.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        });
+
+        const ordered = [];
+        const myId = state.user?.id;
+        if (myId) {
+            const mine = grouped.get(myId) || {
+                user_id: myId,
+                username: state.user?.username || 'Me',
+                profile_picture: state.user?.profile_picture || null,
+                statuses: [],
+            };
+            ordered.push(mine);
+            grouped.delete(myId);
+        }
+
+        const others = Array.from(grouped.values()).sort((a, b) => {
+            return getLatestTimestamp(b) - getLatestTimestamp(a);
+        });
+        ordered.push(...others);
+        state.groups = ordered;
+    }
+
+    function getLatestTimestamp(group) {
+        if (!group.statuses.length) return 0;
+        return new Date(group.statuses[group.statuses.length - 1].created_at).getTime();
+    }
+
+    function renderStatusBar() {
+        if (!state.groups.length && !state.user) {
+            elements.statusBar.innerHTML = '<div class="status-placeholder">Sign in to share a status.</div>';
+            return;
+        }
+
+        const cards = state.groups.map((group, index) => renderStatusItem(group, index === 0));
+        const hasContactStatuses = state.groups.slice(state.user ? 1 : 0).some((group) => group.statuses.length);
+        const placeholder = hasContactStatuses ? '' : '<div class="status-placeholder">No recent updates.</div>';
+        elements.statusBar.innerHTML = `${cards.join('')}${placeholder}`;
+    }
+
+    function renderStatusItem(group, isSelf) {
+        const safeName = escapeHtml(isSelf ? 'My Status' : (group.username || 'Friend'));
+        const initials = (group.username || state.user?.username || 'NC').slice(0, 2).toUpperCase();
+        const hasStatuses = group.statuses.length > 0;
+        const hasUnseen = hasStatuses && group.statuses.some((status) => !state.seenStatusIds.has(status.id));
+        const ringClass = hasStatuses ? (hasUnseen ? 'active' : 'inactive') : 'empty';
+        const avatarContent = group.profile_picture
+            ? `<img src="${group.profile_picture}" alt="${safeName}">`
+            : `<span class="status-initials">${initials}</span>`;
+        const plusBadge = isSelf && !hasStatuses ? '<span class="status-plus">+</span>' : '';
+        const countBadge = hasStatuses ? `<span class="status-count">${group.statuses.length}</span>` : '';
+        return `
+            <div class="status-item${isSelf ? ' status-item-self' : ''}" role="button" tabindex="0"
+                 onclick="openStatus(${group.user_id})"
+                 onkeydown="if(event.key==='Enter') openStatus(${group.user_id})">
+                <div class="status-ring ${ringClass}">
+                    <div class="status-avatar">
+                        ${avatarContent}
+                        ${plusBadge}
+                        ${countBadge}
+                    </div>
+                </div>
+                <span class="status-username">${safeName}</span>
+            </div>
+        `;
+    }
+
+    async function createStatus() {
+        const file = elements.fileInput.files[0];
+        const text = elements.textInput.value.trim();
+
+        if (!file && !text) {
+            alert('Write a status or choose a file.');
+            return;
+        }
+
+        elements.submitButton.disabled = true;
+
+        const formData = new FormData();
+        if (file) formData.append('file', file);
+        if (text) formData.append('content', text);
+
+        try {
+            const res = await fetch('/api/status/create/', {
+                method: 'POST',
+                headers: { 'Authorization': `Token ${state.token}` },
+                body: formData,
+            });
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.error || 'Unable to create status');
+            }
+            resetComposer();
+            await loadStatuses();
+        } catch (error) {
+            console.error(error);
+            alert(error.message || 'Failed to post status.');
+        } finally {
+            elements.submitButton.disabled = false;
+        }
+    }
+
+    function resetComposer() {
+        elements.textInput.value = '';
+        elements.fileInput.value = '';
+        elements.fileLabel.textContent = 'Attach media';
+    }
+
+    function updateFileLabel() {
+        const file = elements.fileInput.files[0];
+        elements.fileLabel.textContent = file ? file.name : 'Attach media';
+    }
+
+    function openStatus(userId) {
+        const id = Number(userId);
+        const group = state.groups.find((item) => item.user_id === id);
+        if (!group) return;
+
+        if (group.user_id === state.user?.id && group.statuses.length === 0) {
+            elements.composer.classList.add('show');
+            elements.textInput.focus();
+            return;
+        }
+
+        if (!group.statuses.length) {
+            return;
+        }
+
+        state.viewerSession = {
+            userId: group.user_id,
+            username: group.user_id === state.user?.id ? 'My Status' : (group.username || 'Status'),
+            statuses: group.statuses,
+            index: 0,
+        };
+        showViewerStatus();
+        elements.viewer.classList.add('show');
+    }
+
+    function showViewerStatus() {
+        const session = state.viewerSession;
+        if (!session) return;
+        const status = session.statuses[session.index];
+        if (!status) {
+            closeViewer();
+            return;
+        }
+        elements.viewerUsername.textContent = session.username;
+        elements.viewerTimestamp.textContent = new Date(status.created_at).toLocaleString();
+        elements.viewerCounter.textContent = `${session.index + 1} of ${session.statuses.length}`;
+        elements.viewerContent.innerHTML = buildViewerContent(status);
+        markAsSeen(status.id);
+    }
+
+    function buildViewerContent(status) {
+        if (status.media_url) {
+            const kind = detectMediaKind(status.media_url);
+            if (kind === 'video') {
+                return `<video src="${status.media_url}" controls autoplay muted></video>`;
+            }
+            if (kind === 'audio') {
+                return `<audio src="${status.media_url}" controls autoplay></audio>`;
+            }
+            return `<img src="${status.media_url}" alt="Status media">`;
+        }
+        return `<p class="viewer-text">${escapeHtml(status.text || 'Shared an update')}</p>`;
+    }
+
+    function detectMediaKind(url) {
+        const extension = (url.split('.').pop() || '').toLowerCase();
+        if (['mp4', 'webm', 'ogv', 'mov', 'mkv'].includes(extension)) return 'video';
+        if (['mp3', 'wav', 'aac', 'm4a', 'ogg'].includes(extension)) return 'audio';
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'].includes(extension)) return 'image';
+        return 'file';
+    }
+
+    function goToNextStatus() {
+        const session = state.viewerSession;
+        if (!session) return;
+        if (session.index < session.statuses.length - 1) {
+            session.index += 1;
+            showViewerStatus();
+        } else {
+            closeViewer();
+        }
+    }
+
+    function goToPrevStatus() {
+        const session = state.viewerSession;
+        if (!session) return;
+        if (session.index === 0) return;
+        session.index -= 1;
+        showViewerStatus();
+    }
+
+    function markAsSeen(statusId) {
+        const id = Number(statusId);
+        if (!id || state.seenStatusIds.has(id)) return;
+        state.seenStatusIds.add(id);
+        persistSeen();
+        renderStatusBar();
+    }
+
+    function closeViewer() {
+        state.viewerSession = null;
+        elements.viewer.classList.remove('show');
+        elements.viewerContent.innerHTML = '';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+    }
+
+    window.createStatus = createStatus;
+    window.openStatus = openStatus;
+    window.markAsSeen = markAsSeen;
+    window.loadStatuses = loadStatuses;
+
+    init();
+})();
+</script>
+{% endblock %}

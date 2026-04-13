@@ -1,0 +1,534 @@
+{% extends 'base.html' %}
+
+{% block title %}Contacts - Nexchat{% endblock %}
+
+{% block extra_styles %}
+.contacts-shell {
+    display: flex;
+    height: 100%;
+    background: #0b141a;
+}
+
+.contacts-pane {
+    flex: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 16px;
+}
+
+.contacts-card {
+    background: #111b21;
+    border: 1px solid #1f2c34;
+    border-radius: 24px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.contacts-top-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: #111b21;
+    padding-bottom: 12px;
+    z-index: 2;
+}
+
+.contacts-title {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.contacts-search {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 14px;
+    background: #1f2c34;
+    border-radius: 999px;
+}
+
+.contacts-search input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #e9edef;
+    font-size: 14px;
+}
+
+.contacts-search input:focus {
+    outline: none;
+}
+
+.contacts-menu {
+    position: relative;
+}
+
+.menu-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: #1f2c34;
+    color: #e9edef;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: 48px;
+    background: #1f2c34;
+    border: 1px solid #2a3942;
+    border-radius: 16px;
+    min-width: 200px;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+    z-index: 5;
+}
+
+.menu-dropdown.show {
+    display: flex;
+}
+
+.menu-dropdown button {
+    background: none;
+    border: none;
+    color: #e9edef;
+    text-align: left;
+    padding: 12px 16px;
+    cursor: pointer;
+}
+
+.menu-dropdown button:hover {
+    background: #2a3942;
+}
+
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 16px 0;
+}
+
+.quick-button {
+    background: #1f2c34;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    padding: 14px 18px;
+    color: #e9edef;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quick-button:hover {
+    border-color: #2b7bff;
+}
+
+.contacts-section-label {
+    color: #8696a0;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 12px 0;
+}
+
+.contacts-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.contact-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+}
+
+.contact-row:last-child {
+    border-bottom: none;
+}
+
+.contact-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #0b5cff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.contact-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.contact-meta span {
+    color: #8696a0;
+    font-size: 13px;
+}
+
+.empty-state {
+    text-align: center;
+    color: #8696a0;
+    padding: 40px 0;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.modal-backdrop.show {
+    display: flex;
+}
+
+.modal {
+    background: #111b21;
+    border: 1px solid #1f2c34;
+    border-radius: 24px;
+    padding: 24px;
+    width: min(420px, 90%);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modal input {
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #2a3942;
+    background: #0b141a;
+    color: #e9edef;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-actions button {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 18px;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid #2a3942;
+    color: #e9edef;
+}
+
+.btn-primary {
+    background: #00a884;
+    color: #111;
+}
+{% endblock %}
+
+{% block content %}
+<div class="contacts-shell">
+    <div class="contacts-pane">
+        <div class="top-bar">
+            <span class="back-btn" onclick="goBack()">←</span>
+            <h3>Contacts</h3>
+        </div>
+        <div class="contacts-card">
+            <div class="contacts-top-bar">
+                <div>
+                    <div class="contacts-title">Contacts</div>
+                    <small id="contactsCount">Loading...</small>
+                </div>
+                <div class="contacts-search">
+                    <input type="search" id="contactSearch" placeholder="Search name or status">
+                </div>
+                <div class="contacts-menu">
+                    <button class="menu-button" id="contactMenuBtn">⋮</button>
+                    <div class="menu-dropdown" id="contactMenu">
+                        <button type="button" data-action="settings">Contact Settings</button>
+                        <button type="button" data-action="refresh">Refresh</button>
+                        <button type="button" data-action="help">Help</button>
+                        <button type="button" data-action="invite">Invite a Friend</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <button class="quick-button" data-route="/groups/create/">
+                    New Group <span>›</span>
+                </button>
+                <button class="quick-button" id="newContactBtn">
+                    New Contact <span>›</span>
+                </button>
+                <button class="quick-button" data-route="/channels/create/">
+                    New Channel <span>›</span>
+                </button>
+            </div>
+
+            <div class="contacts-section-label">Contacts</div>
+            <div class="contacts-list" id="contactsList">
+                <div class="empty-state">Loading contacts...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="contactModal">
+    <div class="modal">
+        <h3>Add Contact</h3>
+        <input type="text" id="contactName" placeholder="Display name (optional)">
+        <input type="tel" id="contactPhone" placeholder="Phone number">
+        <div class="modal-actions">
+            <button type="button" class="btn-secondary" data-close>Cancel</button>
+            <button type="button" class="btn-primary" id="saveContactBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="inviteModal">
+    <div class="modal">
+        <h3>Invite Link</h3>
+        <input type="text" id="inviteLink" readonly>
+        <div class="modal-actions">
+            <button type="button" class="btn-secondary" data-close>Close</button>
+            <button type="button" class="btn-primary" id="copyInviteBtn">Copy</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const state = {
+        token: null,
+        contacts: [],
+        inviteLink: '',
+    };
+
+    const elements = {};
+
+    function headers(withJson = true) {
+        const h = { 'Authorization': `Token ${state.token}` };
+        if (withJson) h['Content-Type'] = 'application/json';
+        return h;
+    }
+
+    function toggleMenu(force) {
+        elements.menu.classList.toggle('show', force ?? !elements.menu.classList.contains('show'));
+    }
+
+    function openModal(modal) {
+        modal.classList.add('show');
+    }
+
+    function closeModal(modal) {
+        modal.classList.remove('show');
+    }
+
+    async function loadContacts() {
+        try {
+            const res = await fetch('/api/user/contacts/', { headers: headers(false) });
+            if (!res.ok) throw new Error('Unable to load contacts');
+            const data = await res.json();
+            state.contacts = data.contacts || [];
+            state.inviteLink = data.invite_link;
+            elements.count.textContent = `${data.count || 0} contacts`;
+            elements.inviteInput.value = state.inviteLink;
+            renderContacts(elements.search.value);
+        } catch (error) {
+            console.error(error);
+            elements.list.innerHTML = '<div class="empty-state">Failed to load contacts.</div>';
+        }
+    }
+
+    function renderContacts(query = '') {
+        const q = (query || '').toLowerCase();
+        const filtered = state.contacts.filter(contact => {
+            return contact.username.toLowerCase().includes(q) ||
+                (contact.status || '').toLowerCase().includes(q);
+        });
+
+        if (!filtered.length) {
+            elements.list.innerHTML = '<div class="empty-state">No contacts found.</div>';
+            return;
+        }
+
+        elements.list.innerHTML = filtered.map(contact => `
+            <div class="contact-row" data-user="${contact.id}">
+                <div class="contact-avatar">${(contact.username || '?').slice(0, 2).toUpperCase()}</div>
+                <div class="contact-meta">
+                    <strong>${contact.username}</strong>
+                    <span>${contact.status || 'Available'}</span>
+                </div>
+            </div>
+        `).join('');
+
+        elements.list.querySelectorAll('.contact-row').forEach(row => {
+            row.addEventListener('click', () => startChat(row.dataset.user));
+        });
+    }
+
+    async function startChat(userId) {
+        if (!userId) return;
+        try {
+            const res = await fetch('/api/chats/create/', {
+                method: 'POST',
+                headers: headers(),
+                body: JSON.stringify({ user_ids: [Number(userId)] }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Failed to open chat');
+            }
+            const data = await res.json();
+            navigate(`/chats/${data.chat_id}/`);
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    async function refreshContacts() {
+        try {
+            const res = await fetch('/api/user/contacts/refresh/', {
+                method: 'POST',
+                headers: headers(),
+            });
+            if (!res.ok) throw new Error('Unable to refresh contacts');
+            await loadContacts();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    async function saveContact() {
+        const phone = elements.contactPhone.value.trim();
+        const displayName = elements.contactName.value.trim();
+        if (!phone) {
+            alert('Enter a phone number.');
+            return;
+        }
+        try {
+            const res = await fetch('/api/user/contacts/', {
+                method: 'POST',
+                headers: headers(),
+                body: JSON.stringify({ phone_number: phone, display_name: displayName }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Unable to save contact');
+            }
+            closeModal(elements.contactModal);
+            elements.contactName.value = '';
+            elements.contactPhone.value = '';
+            await loadContacts();
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    function copyInvite() {
+        if (!state.inviteLink) return;
+        navigator.clipboard?.writeText(state.inviteLink).then(() => {
+            alert('Invite link copied!');
+        }).catch(() => {
+            alert(state.inviteLink);
+        });
+    }
+
+    function handleMenuAction(action) {
+        switch (action) {
+            case 'settings':
+                navigate('/status/privacy/');
+                break;
+            case 'refresh':
+                refreshContacts();
+                break;
+            case 'help':
+                alert('Contacts sync is simulated using saved phone numbers.');
+                break;
+            case 'invite':
+                elements.inviteInput.value = state.inviteLink;
+                openModal(elements.inviteModal);
+                break;
+        }
+        toggleMenu(false);
+    }
+
+    function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.list = document.getElementById('contactsList');
+        elements.menuBtn = document.getElementById('contactMenuBtn');
+        elements.menu = document.getElementById('contactMenu');
+        elements.search = document.getElementById('contactSearch');
+        elements.count = document.getElementById('contactsCount');
+        elements.contactModal = document.getElementById('contactModal');
+        elements.contactName = document.getElementById('contactName');
+        elements.contactPhone = document.getElementById('contactPhone');
+        elements.saveContactBtn = document.getElementById('saveContactBtn');
+        elements.inviteModal = document.getElementById('inviteModal');
+        elements.inviteInput = document.getElementById('inviteLink');
+        elements.copyInviteBtn = document.getElementById('copyInviteBtn');
+
+        elements.menuBtn.addEventListener('click', () => toggleMenu());
+        document.addEventListener('click', (event) => {
+            if (!elements.menu.contains(event.target) && event.target !== elements.menuBtn) {
+                toggleMenu(false);
+            }
+        });
+        elements.menu.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', () => handleMenuAction(button.dataset.action));
+        });
+        elements.search.addEventListener('input', (event) => renderContacts(event.target.value));
+        elements.saveContactBtn.addEventListener('click', saveContact);
+        elements.copyInviteBtn.addEventListener('click', copyInvite);
+        document.querySelectorAll('[data-close]').forEach(btn => {
+            btn.addEventListener('click', () => closeModal(btn.closest('.modal-backdrop')));
+        });
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.addEventListener('click', (event) => {
+                if (event.target === backdrop) {
+                    closeModal(backdrop);
+                }
+            });
+        });
+        document.getElementById('newContactBtn').addEventListener('click', () => openModal(elements.contactModal));
+        document.querySelectorAll('.quick-button[data-route]').forEach(btn => {
+            btn.addEventListener('click', () => navigate(btn.dataset.route));
+        });
+
+        loadContacts();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

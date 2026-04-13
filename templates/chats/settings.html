@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings - Nexchat{% endblock %}
+
+{% block extra_styles %}
+{% include 'chats/partials/utility_styles.css' %}
+.setting-section {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 16px;
+}
+.setting-section h3 {
+    margin-top: 0;
+}
+.setting-section + .setting-section {
+    margin-top: 16px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+    <span class="back-btn" onclick="goBack()">←</span>
+    <h3>Settings</h3>
+</div>
+<div class="utility-shell">
+    <section class="utility-main">
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h1>Settings</h1>
+                    <p>Tune your Nexchat experience.</p>
+                </div>
+                <div class="utility-actions">
+                    <button type="button" id="downloadData">Download data</button>
+                </div>
+            </div>
+            <div class="setting-section">
+                <h3>Theme</h3>
+                <div class="toggle-row">
+                    <label for="darkModeToggle">Dark Mode</label>
+                    <input type="checkbox" id="darkModeToggle">
+                </div>
+                <div class="toggle-row">
+                    <label for="contrastToggle">High Contrast</label>
+                    <input type="checkbox" id="contrastToggle">
+                </div>
+            </div>
+            <div class="setting-section">
+                <h3>Privacy & Account</h3>
+                <div class="toggle-row">
+                    <label for="lastSeenSelect">Last Seen Visibility</label>
+                    <select id="lastSeenSelect">
+                        <option value="everyone">Everyone</option>
+                        <option value="nobody">Nobody</option>
+                    </select>
+                </div>
+                <div class="toggle-row">
+                    <label for="readReceiptsToggle">Read Receipts</label>
+                    <input type="checkbox" id="readReceiptsToggle">
+                </div>
+                <div class="utility-actions">
+                    <button type="button" id="logoutButton">Log out</button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const endpoint = '/api/user/auth/profile/';
+    const state = {
+        token: null,
+        profile: null,
+    };
+
+    const elements = {};
+
+    function getHeaders(includeJson = true) {
+        const headers = {
+            'Authorization': `Token ${state.token}`,
+        };
+        if (includeJson) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    }
+
+    function applyThemeFromStorage() {
+        const theme = localStorage.getItem('nexchat-theme') || 'dark';
+        const contrast = localStorage.getItem('nexchat-contrast') === 'high';
+        document.body.classList.toggle('light-theme', theme === 'light');
+        document.body.classList.toggle('high-contrast', contrast);
+        elements.darkMode.checked = theme === 'dark';
+        elements.contrast.checked = contrast;
+    }
+
+    function persistTheme() {
+        const theme = elements.darkMode.checked ? 'dark' : 'light';
+        const contrast = elements.contrast.checked ? 'high' : 'normal';
+        localStorage.setItem('nexchat-theme', theme);
+        localStorage.setItem('nexchat-contrast', contrast);
+        applyThemeFromStorage();
+    }
+
+    async function loadProfile() {
+        try {
+            const res = await fetch(endpoint, { headers: getHeaders(false) });
+            if (!res.ok) throw new Error('Unable to load settings');
+            state.profile = await res.json();
+            elements.lastSeen.value = state.profile.last_seen_privacy || 'everyone';
+            elements.readReceipts.checked = Boolean(state.profile.read_receipts);
+        } catch (error) {
+            console.error(error);
+            alert('Failed to load account settings.');
+        }
+    }
+
+    async function updateProfileField(payload) {
+        try {
+            const res = await fetch(endpoint, {
+                method: 'PATCH',
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error('Unable to update setting');
+            state.profile = await res.json();
+        } catch (error) {
+            console.error(error);
+            alert('Could not update setting.');
+        }
+    }
+
+    async function handleLogout() {
+        try {
+            const res = await fetch('/api/user/auth/logout/', {
+                method: 'POST',
+                headers: getHeaders(false),
+            });
+            if (!res.ok) throw new Error('Logout failed');
+        } catch (error) {
+            console.error(error);
+        } finally {
+            localStorage.removeItem('token');
+            window.location.href = '/user/login-page/';
+        }
+    }
+
+    function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.darkMode = document.getElementById('darkModeToggle');
+        elements.contrast = document.getElementById('contrastToggle');
+        elements.lastSeen = document.getElementById('lastSeenSelect');
+        elements.readReceipts = document.getElementById('readReceiptsToggle');
+        elements.logout = document.getElementById('logoutButton');
+        elements.download = document.getElementById('downloadData');
+        applyThemeFromStorage();
+        elements.darkMode.addEventListener('change', persistTheme);
+        elements.contrast.addEventListener('change', persistTheme);
+        elements.lastSeen.addEventListener('change', () => updateProfileField({ last_seen_privacy: elements.lastSeen.value }));
+        elements.readReceipts.addEventListener('change', () => updateProfileField({ read_receipts: elements.readReceipts.checked }));
+        elements.logout.addEventListener('click', handleLogout);
+        elements.download.addEventListener('click', () => alert('Export coming soon.'));
+        loadProfile();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

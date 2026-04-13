@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Nexchat{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block extra_styles %}
+.auth-card h2 { color: #128c7e; text-align: center; margin-bottom: 16px; }
+.auth-card form { display: flex; flex-direction: column; gap: 12px; }
+.auth-card input {
+    padding: 12px;
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+}
+.auth-card button {
+    padding: 12px;
+    background: #128c7e;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.auth-card button:hover { background: #0f6d60; }
+.auth-card .link { margin-top: 8px; text-align: center; }
+.auth-card .error { color: #e74c3c; min-height: 20px; text-align: center; }
+{% endblock %}
+
+{% block content %}
+<div class="card auth-card">
+    <h2>Welcome back</h2>
+    <form id="loginForm">
+        <input type="text" id="username" placeholder="Username" required/>
+        <input type="password" id="password" placeholder="Password" required/>
+        <button type="submit">Login</button>
+        <div id="error" class="error"></div>
+    </form>
+    <div class="link">
+        Don't have an account? <a href="/user/register-page/">Register</a>
+    </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const errorDiv = document.getElementById('error');
+    errorDiv.innerText = '';
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    
+    if (!username || !password) {
+        errorDiv.innerText = 'Username and password are required';
+        return;
+    }
+    
+    try {
+        console.log('Existing token before login:', localStorage.getItem('token'));
+        const response = await fetch('/api/user/auth/login/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const result = await response.json();
+        console.log('Login response:', result);
+        
+        if (response.ok && result.token) {
+            localStorage.setItem('token', result.token);
+            console.log('Token saved:', localStorage.getItem('token'));
+            window.location.href = '/chats/';
+        } else {
+            errorDiv.innerText = result.error || result.message || 'Login failed. Please try again.';
+        }
+    } catch (error) {
+        console.error('Fetch error:', error);
+        errorDiv.innerText = `Error: ${error.message}`;
+    }
+});
+</script>
+{% endblock %}

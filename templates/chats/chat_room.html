@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat #{{ chat_id }} - Nexchat{% endblock %}
+
+{% block extra_styles %}
+.chat-room-app {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+}
+.chat-room-panel {
+    flex: 1;
+    background: var(--panel-light);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 160px);
+}
+.chat-room-sidebar {
+    flex: 0 0 280px;
+    background: var(--panel-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 24px;
+}
+.chat-room-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.chat-room-header h2 {
+    margin: 0;
+}
+.chat-room-header-info.profile-link {
+    cursor: pointer;
+}
+.chat-room-header-info.profile-link h2 {
+    text-decoration: underline;
+}
+.chat-back {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+.chat-thread {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+}
+.message-bubble {
+    max-width: 65%;
+    padding: 14px 18px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+}
+.message-bubble.sent {
+    margin-left: auto;
+    background: var(--primary);
+    color: #fff;
+    border-bottom-right-radius: 5px;
+}
+.message-bubble.received {
+    margin-right: auto;
+    background: var(--card);
+    color: var(--text);
+    border-bottom-left-radius: 5px;
+}
+.message-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+.chat-composer {
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--border-color);
+}
+.chat-composer form {
+    display: flex;
+    gap: 12px;
+    background: var(--panel-dark);
+    border-radius: 999px;
+    padding: 6px 12px 6px 20px;
+    align-items: center;
+}
+.chat-composer textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    resize: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    max-height: 120px;
+}
+.chat-composer button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
+.chat-room-sidebar h4 {
+    margin-top: 0;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.sidebar-section {
+    margin-bottom: 24px;
+}
+.sidebar-section .contact-item {
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-color);
+    margin-bottom: 12px;
+}
+.status-list {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.status-entry {
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+}
+{% endblock %}
+
+{% block content %}
+<div class="chat-room-app">
+    <section class="chat-room-panel">
+        <div class="chat-room-header">
+            <div class="chat-room-header-info" id="roomProfileInfo">
+                <h2>Chat #{{ chat_id }}</h2>
+                <small id="chatSubtitle">Loading participants...</small>
+            </div>
+            <a class="chat-back" href="/chats/">← All chats</a>
+        </div>
+        <div class="chat-thread" id="thread">
+            <div class="empty-state">Loading messages...</div>
+        </div>
+        <div class="chat-composer">
+            <form id="chatRoomForm">
+                <textarea id="chatRoomInput" rows="1" placeholder="Type a message..."></textarea>
+                <button type="submit">➤</button>
+            </form>
+        </div>
+    </section>
+    <aside class="chat-room-sidebar">
+        <div class="sidebar-section">
+            <h4>Participants</h4>
+            <div id="participantList">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+        <div class="sidebar-section">
+            <h4>Status Feed</h4>
+            <div class="status-list" id="roomStatusList">
+                <div class="empty-state">No statuses yet.</div>
+            </div>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const CHAT_ID = "{{ chat_id }}";
+const state = {
+    token: localStorage.getItem('token'),
+    user: null,
+    profileTargetId: null,
+};
+
+if (!state.token) {
+    window.location.href = '/user/login-page/';
+}
+
+const headers = {
+    'Authorization': `Token ${state.token}`,
+    'Content-Type': 'application/json'
+};
+
+async function initRoom() {
+    await loadProfile();
+    await Promise.all([loadMessages(), loadChatInfo(), loadStatuses()]);
+    document.getElementById('chatRoomForm').addEventListener('submit', sendMessage);
+    const input = document.getElementById('chatRoomInput');
+    input.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    const roomProfileInfo = document.getElementById('roomProfileInfo');
+    if (roomProfileInfo) {
+        roomProfileInfo.addEventListener('click', () => {
+            if (state.profileTargetId) {
+                openProfile(state.profileTargetId);
+            }
+        });
+    }
+}
+
+async function loadProfile() {
+    const res = await fetch('/api/user/auth/profile/', { headers });
+    if (res.ok) {
+        state.user = await res.json();
+        if (document.getElementById('globalAvatar')) {
+            document.getElementById('globalAvatar').textContent = state.user.username.slice(0,2).toUpperCase();
+        }
+    }
+}
+
+async function loadMessages() {
+    try {
+        const res = await fetch(`/api/messages/${CHAT_ID}/`, { headers });
+        if (!res.ok) throw new Error('Failed to load messages');
+        const data = await res.json();
+        renderMessages(data.messages || []);
+        await fetch(`/api/messages/read/${CHAT_ID}/`, { method: 'POST', headers });
+    } catch (error) {
+        document.getElementById('thread').innerHTML = `<div class="empty-state">${error.message}</div>`;
+    }
+}
+
+function renderMessages(messages) {
+    const thread = document.getElementById('thread');
+    if (!messages.length) {
+        thread.innerHTML = '<div class="empty-state">No messages yet.</div>';
+        return;
+    }
+    thread.innerHTML = messages.map(msg => {
+        const own = msg.sender_id === state.user?.id;
+        const time = new Date(msg.created_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+        const readIndicator = own ? `<span>${msg.is_read ? '✓✓' : '✓'}</span>` : '';
+        const escaped = escapeHtml(msg.content);
+        return `
+            <div class="message-bubble ${own ? 'sent' : 'received'}">
+                <div>${escaped}</div>
+                <div class="message-meta">
+                    <span>${time}</span>
+                    ${readIndicator}
+                </div>
+            </div>
+        `;
+    }).join('');
+    thread.scrollTop = thread.scrollHeight;
+}
+
+async function loadChatInfo() {
+    const res = await fetch('/api/chats/', { headers: { 'Authorization': headers.Authorization } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const chat = (data.chats || []).find(c => c.chat_id === Number(CHAT_ID));
+    if (!chat) return;
+    const others = chat.participants.filter(p => p.id !== state.user?.id);
+    state.profileTargetId = (!chat.is_saved && others.length === 1) ? others[0].id : null;
+    const headerInfo = document.getElementById('roomProfileInfo');
+    if (headerInfo) {
+        headerInfo.classList.toggle('profile-link', Boolean(state.profileTargetId));
+    }
+    document.getElementById('chatSubtitle').textContent = chat.participants.map(p => p.username).join(', ');
+    const participantMarkup = chat.participants.map(p => `
+        <div class="contact-item">
+            <strong>${p.username}</strong>
+            <div>${p.id === state.user?.id ? 'You' : 'Participant'}</div>
+        </div>
+    `).join('');
+    document.getElementById('participantList').innerHTML = participantMarkup;
+}
+
+async function loadStatuses() {
+    const res = await fetch('/api/status/', { headers: { 'Authorization': headers.Authorization } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const statusList = document.getElementById('roomStatusList');
+    if (!data.statuses?.length) {
+        statusList.innerHTML = '<div class="empty-state">No statuses yet.</div>';
+        return;
+    }
+    statusList.innerHTML = data.statuses.map(status => `
+        <div class="status-entry">
+            <strong>${status.username}</strong>
+            <div>${status.content || 'Shared an update'}</div>
+            <small>${new Date(status.created_at).toLocaleString()}</small>
+        </div>
+    `).join('');
+}
+
+async function sendMessage(event) {
+    event.preventDefault();
+    const textarea = document.getElementById('chatRoomInput');
+    const content = textarea.value.trim();
+    if (!content) return;
+    const res = await fetch('/api/messages/send/', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ chat_id: CHAT_ID, content })
+    });
+    if (res.ok) {
+        textarea.value = '';
+        textarea.style.height = 'auto';
+        await loadMessages();
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+initRoom();
+</script>
+{% endblock %}

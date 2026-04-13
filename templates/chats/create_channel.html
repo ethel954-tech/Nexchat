@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Channel - Nexchat{% endblock %}
+
+{% block extra_styles %}
+{% include 'chats/partials/utility_styles.css' %}
+.channel-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+.channel-option {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 16px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+    <span class="back-btn" onclick="goBack()">←</span>
+    <h3>New Channel</h3>
+</div>
+<div class="utility-shell">
+    <section class="utility-main">
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h1>New Channel</h1>
+                    <p>Broadcast announcements or run a public community.</p>
+                </div>
+                <div class="utility-actions">
+                    <button type="button" id="viewChannels">Refresh List</button>
+                </div>
+            </div>
+            <form class="utility-form" id="channelForm">
+                <label for="channelName">Channel Name</label>
+                <input type="text" id="channelName" placeholder="Launch Broadcast" required>
+
+                <label>Audience</label>
+                <div class="channel-options">
+                    <label class="channel-option">
+                        <input type="radio" name="visibility" value="public" checked>
+                        <strong>Public</strong>
+                        <p>Discoverable by link or search.</p>
+                    </label>
+                    <label class="channel-option">
+                        <input type="radio" name="visibility" value="private">
+                        <strong>Private</strong>
+                        <p>Invite-only, perfect for premium content.</p>
+                    </label>
+                </div>
+
+                <label for="channelTopic">Topic</label>
+                <input type="text" id="channelTopic" placeholder="Weekly Product Changelog">
+
+                <label for="channelDescription">Description</label>
+                <textarea id="channelDescription" rows="3" placeholder="Tell members what to expect."></textarea>
+
+                <button type="submit">Create Channel</button>
+            </form>
+        </div>
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h2>Your Channels</h2>
+                    <p>Manage the broadcasts that you own.</p>
+                </div>
+            </div>
+            <div class="utility-list" id="channelList">
+                <div class="empty-state">No channels yet.</div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const state = {
+        token: null,
+        channels: [],
+    };
+
+    const elements = {};
+
+    function getHeaders(includeJson = true) {
+        const headers = {
+            'Authorization': `Token ${state.token}`,
+        };
+        if (includeJson) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    }
+
+    async function loadChannels() {
+        try {
+            const res = await fetch('/api/chats/channels/', { headers: getHeaders(false) });
+            if (!res.ok) throw new Error('Unable to load channels');
+            const data = await res.json();
+            state.channels = data.channels || [];
+            renderChannels();
+        } catch (error) {
+            console.error(error);
+            elements.list.innerHTML = '<div class="empty-state">Failed to load channels.</div>';
+        }
+    }
+
+    function renderChannels() {
+        if (!state.channels.length) {
+            elements.list.innerHTML = '<div class="empty-state">No channels yet.</div>';
+            return;
+        }
+        elements.list.innerHTML = state.channels.map(channel => `
+            <div class="utility-list-item">
+                <div>
+                    <strong>${channel.name}</strong>
+                    <p>${channel.topic || 'No topic'}</p>
+                    <small>${channel.visibility === 'public' ? 'Public' : 'Private'} · Created ${new Date(channel.created_at).toLocaleString()}</small>
+                </div>
+                <div class="utility-actions">
+                    <button type="button" data-id="${channel.id}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        elements.list.querySelectorAll('button[data-id]').forEach(button => {
+            button.addEventListener('click', () => deleteChannel(button.dataset.id));
+        });
+    }
+
+    async function deleteChannel(channelId) {
+        if (!channelId) return;
+        if (!confirm('Delete this channel?')) return;
+        try {
+            const res = await fetch(`/api/chats/channels/${channelId}/`, {
+                method: 'DELETE',
+                headers: getHeaders(false),
+            });
+            if (!res.ok && res.status !== 204) throw new Error('Failed to delete channel');
+            state.channels = state.channels.filter(channel => String(channel.id) !== String(channelId));
+            renderChannels();
+        } catch (error) {
+            console.error(error);
+            alert('Unable to delete channel.');
+        }
+    }
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        const visibility = elements.form.querySelector('input[name="visibility"]:checked')?.value || 'public';
+        const payload = {
+            name: elements.name.value.trim(),
+            topic: elements.topic.value.trim(),
+            description: elements.description.value.trim(),
+            visibility,
+        };
+        if (!payload.name) {
+            alert('Channel name is required.');
+            return;
+        }
+        try {
+            const res = await fetch('/api/chats/channels/', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Unable to create channel');
+            }
+            const channel = await res.json();
+            state.channels = [channel, ...state.channels];
+            elements.form.reset();
+            renderChannels();
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.form = document.getElementById('channelForm');
+        elements.name = document.getElementById('channelName');
+        elements.topic = document.getElementById('channelTopic');
+        elements.description = document.getElementById('channelDescription');
+        elements.list = document.getElementById('channelList');
+        elements.viewButton = document.getElementById('viewChannels');
+        elements.form.addEventListener('submit', handleSubmit);
+        elements.viewButton.addEventListener('click', loadChannels);
+        loadChannels();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Group - Nexchat{% endblock %}
+
+{% block extra_styles %}
+{% include 'chats/partials/utility_styles.css' %}
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.chip {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+}
+.contact-picklist {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 12px;
+    max-height: 260px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.contact-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+    <span class="back-btn" onclick="goBack()">←</span>
+    <h3>New Group</h3>
+</div>
+<div class="utility-shell">
+    <section class="utility-main">
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h1>Create Group</h1>
+                    <p>Select multiple contacts to start a shared conversation.</p>
+                </div>
+                <div class="utility-actions">
+                    <button type="button" id="importContacts">Import Contacts</button>
+                </div>
+            </div>
+            <form class="utility-form" id="groupForm">
+                <label for="groupName">Group Name</label>
+                <input type="text" id="groupName" placeholder="Team Sprint Sync" required>
+
+                <label for="groupDescription">Description</label>
+                <textarea rows="3" id="groupDescription" placeholder="What is this group about?"></textarea>
+
+                <label>Selected members</label>
+                <div class="chip-list" id="selectedChips">
+                    <span class="pill">Pick at least two contacts</span>
+                </div>
+
+                <label>Contacts</label>
+                <div class="contact-picklist" id="groupContacts">
+                    <div class="empty-state">Loading contacts...</div>
+                </div>
+
+                <button type="submit">Create Group</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const state = {
+        token: null,
+        contacts: [],
+        selected: new Set(),
+    };
+
+    const elements = {};
+
+    function getHeaders(includeJson = true) {
+        const headers = {
+            'Authorization': `Token ${state.token}`,
+        };
+        if (includeJson) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    }
+
+    async function loadContacts() {
+        try {
+            const res = await fetch('/api/user/contacts/', { headers: getHeaders(false) });
+            if (!res.ok) throw new Error('Unable to load contacts');
+            const data = await res.json();
+            state.contacts = data.contacts || [];
+            renderContactPicklist();
+        } catch (error) {
+            console.error(error);
+            elements.contacts.innerHTML = '<div class="empty-state">Failed to load contacts.</div>';
+        }
+    }
+
+    function renderContactPicklist() {
+        if (!state.contacts.length) {
+            elements.contacts.innerHTML = '<div class="empty-state">No contacts found.</div>';
+            return;
+        }
+        elements.contacts.innerHTML = state.contacts.map(contact => `
+            <label class="contact-checkbox">
+                <input type="checkbox" value="${contact.id}" ${state.selected.has(contact.id) ? 'checked' : ''}>
+                <span>${contact.username}</span>
+            </label>
+        `).join('');
+
+        elements.contacts.querySelectorAll('input[type=\"checkbox\"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (event) => toggleSelection(event.target));
+        });
+        renderSelectedChips();
+    }
+
+    function toggleSelection(input) {
+        const id = Number(input.value);
+        if (input.checked) {
+            state.selected.add(id);
+        } else {
+            state.selected.delete(id);
+        }
+        renderSelectedChips();
+    }
+
+    function renderSelectedChips() {
+        if (!state.selected.size) {
+            elements.chips.innerHTML = '<span class="pill">Pick at least two contacts</span>';
+            return;
+        }
+        const lookup = new Map(state.contacts.map(c => [c.id, c.username]));
+        elements.chips.innerHTML = Array.from(state.selected).map(id => `
+            <span class="chip">${lookup.get(id) || 'Unknown'}</span>
+        `).join('');
+    }
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        if (state.selected.size < 2) {
+            alert('Select at least two contacts to start a group.');
+            return;
+        }
+        const payload = {
+            user_ids: Array.from(state.selected),
+        };
+        try {
+            const res = await fetch('/api/chats/create/', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to create group');
+            }
+            const data = await res.json();
+            alert('Group created! Redirecting to chat room...');
+            navigate(`/chats/${data.chat_id}/`);
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.form = document.getElementById('groupForm');
+        elements.name = document.getElementById('groupName');
+        elements.description = document.getElementById('groupDescription');
+        elements.contacts = document.getElementById('groupContacts');
+        elements.chips = document.getElementById('selectedChips');
+        elements.importButton = document.getElementById('importContacts');
+        elements.form.addEventListener('submit', handleSubmit);
+        elements.importButton.addEventListener('click', () => alert('Contact import coming soon.'));
+        loadContacts();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Saved Messages - Nexchat{% endblock %}
+
+{% block extra_styles %}
+{% include 'chats/partials/utility_styles.css' %}
+{% endblock %}
+
+{% block content %}
+<div class="utility-shell">
+    <aside class="utility-sidebar">
+        {% include 'chats/partials/sidebar_menu.html' %}
+    </aside>
+    <section class="utility-main">
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h1>Saved Messages</h1>
+                    <p>Your private space to pin links, drafts, and reminders.</p>
+                </div>
+            </div>
+            <form class="utility-form" id="savedForm">
+                <label for="savedTitle">Title (optional)</label>
+                <input type="text" id="savedTitle" maxlength="160" placeholder="Daily stand-up template">
+                <label for="savedContent">Content</label>
+                <textarea id="savedContent" rows="3" placeholder="Yesterday I worked on..."></textarea>
+                <div class="utility-actions">
+                    <button type="submit">Save Note</button>
+                </div>
+            </form>
+        </div>
+        <div class="utility-card">
+            <div class="utility-header">
+                <div>
+                    <h2>Recent notes</h2>
+                    <p>Most recent entries appear first.</p>
+                </div>
+            </div>
+            <div class="utility-list" id="savedList">
+                <div class="empty-state">No saved messages yet.</div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const state = {
+        token: null,
+        items: [],
+    };
+
+    const elements = {};
+
+    function getHeaders(includeJson = true) {
+        const headers = {
+            'Authorization': `Token ${state.token}`,
+        };
+        if (includeJson) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    }
+
+    async function loadSaved() {
+        try {
+            const res = await fetch('/api/chats/saved/', {
+                headers: getHeaders(false),
+            });
+            if (!res.ok) throw new Error('Unable to load saved notes');
+            const data = await res.json();
+            state.items = data.items || [];
+            renderSaved();
+        } catch (error) {
+            console.error(error);
+            elements.list.innerHTML = '<div class="empty-state">Failed to load saved messages.</div>';
+        }
+    }
+
+    function renderSaved() {
+        if (!state.items.length) {
+            elements.list.innerHTML = '<div class="empty-state">No saved messages yet.</div>';
+            return;
+        }
+
+        elements.list.innerHTML = state.items.map(item => `
+            <div class="utility-list-item" data-id="${item.id}">
+                <div>
+                    <strong>${item.title || 'Untitled'}</strong>
+                    <p>${item.content}</p>
+                </div>
+                <div class="utility-actions">
+                    <button type="button" data-action="delete" data-id="${item.id}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        elements.list.querySelectorAll('button[data-action=\"delete\"]').forEach(button => {
+            button.addEventListener('click', () => deleteSaved(button.dataset.id));
+        });
+    }
+
+    async function deleteSaved(savedId) {
+        if (!savedId) return;
+        try {
+            const res = await fetch(`/api/chats/saved/${savedId}/`, {
+                method: 'DELETE',
+                headers: getHeaders(false),
+            });
+            if (!res.ok && res.status !== 204) throw new Error('Failed to delete item');
+            state.items = state.items.filter(item => String(item.id) !== String(savedId));
+            renderSaved();
+        } catch (error) {
+            console.error(error);
+            alert('Unable to delete saved note.');
+        }
+    }
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        const payload = {
+            title: elements.title.value.trim(),
+            content: elements.content.value.trim(),
+        };
+        if (!payload.content) {
+            alert('Please enter some content.');
+            return;
+        }
+        try {
+            const res = await fetch('/api/chats/saved/', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to save note');
+            }
+            elements.title.value = '';
+            elements.content.value = '';
+            const savedItem = await res.json();
+            state.items = [savedItem, ...state.items];
+            renderSaved();
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    function init() {
+        state.token = localStorage.getItem('token');
+        if (!state.token) {
+            window.location.href = '/user/login-page/';
+            return;
+        }
+        elements.form = document.getElementById('savedForm');
+        elements.title = document.getElementById('savedTitle');
+        elements.content = document.getElementById('savedContent');
+        elements.list = document.getElementById('savedList');
+        elements.form.addEventListener('submit', handleSubmit);
+        loadSaved();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}
